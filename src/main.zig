@@ -1,7 +1,8 @@
 const std = @import("std");
 const icat = @import("icat");
 
-const CHUNK_SIZE = 4096;
+const CHUNK_SIZE = 4096; // Kitty protocol requirement
+const BUFFER_SIZE = 64 * 1024; // Stdout write optimization
 
 pub fn main() !void {
     const gpa = std.heap.raw_c_allocator;
@@ -19,11 +20,8 @@ pub fn main() !void {
 
     const file_name = args[1];
 
-    const page_size = std.heap.pageSize();
-    const buffer = try arena.alloc(u8, page_size);
-    defer arena.free(buffer);
-
-    var stdout_writer = std.fs.File.stdout().writer(buffer);
+    var stdout_buffer: [BUFFER_SIZE]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
     const file_handle = try std.fs.cwd().openFile(file_name, .{});
