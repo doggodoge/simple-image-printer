@@ -2,8 +2,11 @@ const std = @import("std");
 const icat = @import("icat");
 
 pub fn main() !void {
-    const gpa = std.heap.raw_c_allocator;
-    var arena_instance = std.heap.ArenaAllocator.init(gpa);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var arena_instance = std.heap.ArenaAllocator.init(allocator);
     defer arena_instance.deinit();
     const arena = arena_instance.allocator();
 
