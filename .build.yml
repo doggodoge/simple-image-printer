@@ -3,7 +3,7 @@ submitter:
   git.sr.ht:
     enabled: true
     allow-refs:
-      - refs/head/main
+      - refs/heads/main
       - "refs/tags/*"
 packages:
   - zig
