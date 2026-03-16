@@ -13,8 +13,11 @@ pub fn handOverSharedMemory(allocator: std.mem.Allocator, file_name: []const u8)
     const file_stat = try file_handle.stat();
 
     const pid = std.posix.system.getpid();
-    const shm_name = try std.fmt.allocPrint(arena, "/{d}-{s}", .{ pid, file_name });
-    const c_shm_name = try arena.dupeZ(u8, shm_name);
+    const hash = try getRandomHash(arena);
+    const shm_name_long = try std.fmt.allocPrint(arena, "/{d}-{s}", .{ pid, hash });
+
+    const shm_name = shm_name_long[0..@min(30, shm_name_long.len)];
+    const c_shm_name = try arena.dupeZ(u8, shm_name); // should be fine.
 
     // note: the terminal emulator is responsible for freeing the shared memory
     // object, not us. We should NOT call shm_unlink.
@@ -29,9 +32,7 @@ pub fn handOverSharedMemory(allocator: std.mem.Allocator, file_name: []const u8)
     }
     defer _ = std.c.close(shm_fd);
 
-    if (std.c.ftruncate(shm_fd, @intCast(file_stat.size)) != 0) {
-        return error.TruncateFailed;
-    }
+    try std.posix.ftruncate(shm_fd, file_stat.size);
 
     const mapped_bytes = try std.posix.mmap(
         null,
@@ -44,17 +45,18 @@ pub fn handOverSharedMemory(allocator: std.mem.Allocator, file_name: []const u8)
     defer std.posix.munmap(mapped_bytes);
 
     _ = try file_handle.readAll(mapped_bytes);
+    try std.posix.msync(mapped_bytes, std.posix.MSF.SYNC);
 
     const base64_len = std.base64.standard.Encoder.calcSize(shm_name.len);
     const base64_buf = try arena.alloc(u8, base64_len);
     _ = std.base64.standard.Encoder.encode(base64_buf, shm_name);
 
-    var stdout_buffer: [16 * 1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout_buffer = try arena.alloc(u8, 16 * 1024);
+    var stdout_writer = std.fs.File.stdout().writer(stdout_buffer);
     const stdout = &stdout_writer.interface;
 
     try stdout.print(
-        "\x1b_Gf=100,a=T,t=s,S={d};{s}\x1b\\",
+        "\x1b_Gf=100,a=T,t=s,S={d},O=0;{s}\x1b\\\n",
         .{ file_stat.size, base64_buf },
     );
     try stdout.flush();
@@ -103,4 +105,15 @@ pub fn streamBase64ToStdout(allocator: std.mem.Allocator, file_name: []const u8)
 
     try stdout.writeAll("\n");
     try stdout.flush();
+}
+
+/// Creates Random every call, rewrite to pass in Random if need to call
+/// frequently.
+fn getRandomHash(allocator: std.mem.Allocator) ![]u8 {
+    var prng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp()));
+    const random = prng.random();
+    const random_val = random.int(u64);
+    const hash_val = std.hash.Wyhash.hash(0, std.mem.asBytes(&random_val));
+
+    return std.fmt.allocPrint(allocator, "{x}", .{hash_val});
 }
