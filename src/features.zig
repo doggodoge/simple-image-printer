@@ -1,15 +1,14 @@
 const std = @import("std");
+const hasEnvVar = std.process.hasEnvVar;
 
 pub fn canUseSharedMemory(allocator: std.mem.Allocator) !bool {
     var arena_instance = std.heap.ArenaAllocator.init(allocator);
     defer arena_instance.deinit();
     const arena = arena_instance.allocator();
 
-    var env_map = try std.process.getEnvMap(arena);
-
-    const has_ssh_client = env_map.hash_map.contains("SSH_CLIENT");
-    const has_ssh_connection = env_map.hash_map.contains("SSH_CONNECTION");
-    const has_ssh_tty = env_map.hash_map.contains("SSH_TTY");
+    const has_ssh_client = try hasEnvVar(arena, "SSH_CLIENT");
+    const has_ssh_connection = try hasEnvVar(arena, "SSH_CONNECTION");
+    const has_ssh_tty = try hasEnvVar(arena, "SSH_TTY");
 
     return !(has_ssh_client or has_ssh_connection or has_ssh_tty);
 }
