@@ -1,7 +1,5 @@
 # Simple image printer
 
-[![builds.sr.ht status](https://builds.sr.ht/~gary_moore/simple-image-printer/commits/main/.build.yml.svg)](https://builds.sr.ht/~gary_moore/simple-image-printer/commits/main/.build.yml?)
-
 Right now it only handles PNGs. Uses the kitty terminal graphics protocol in
 direct mode to print an image to the console. Honestly, the terminal does most
 of the work.
